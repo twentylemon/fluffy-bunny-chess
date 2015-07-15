@@ -1,0 +1,417 @@
+
+COSC 3P71 - Chess
+Taras Mychaskiw
+Lachlan Plant
+
+Evaluation Function - Basic Ideas
+  1. material score
+  2. piece scoring
+    - placement of each piece
+    - mobility
+    - outposts
+    - traps, anything piece specific
+  3. pawn scoring
+    - placement of pawns
+    - files, capturing rules
+    - isolated, doubled, defective pawns
+    - passed pawns
+
+
+Material Score
+  Just the sum of the board. Nothing hard here.
+    PAWN_VALUE    100
+    KNIGHT_VALUE  300
+    BISHOP_VALUE  325
+    ROOK_VALUE    500
+    QUEEN_VALUE   900
+    KING_VALUE    32767
+
+
+Piece Scoring
+  1. King
+    - Endgame Activity
+      In the endgame, an active king is key. Where are the pawns? That's where the king should be.
+              Queen Side                         Neither or Both                        King Side
+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+
+  8 |-20|-20|-20|-20|-20|-20|-40|-50|  8 |-30|-30|-30|-30|-30|-30|-30|-30|  8 |-50|-40|-20|-20|-20|-20|-20|-20|
+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+
+  7 | 0 | 0 | 0 | 0 | 0 |-20|-40|-50|  7 |-30|-10|-10|-10|-10|-10|-10|-30|  7 |-50|-40|-20| 0 | 0 | 0 | 0 | 0 |
+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+
+  6 | 20| 20| 20| 20| 20|-20|-40|-50|  6 |-30|-10| 20| 20| 20| 20|-10|-30|  6 |-50|-40|-20| 20| 20| 20| 20| 20|
+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+
+  5 | 30| 30| 30| 30| 20|-20|-40|-50|  5 |-30|-10| 30| 30| 30| 30|-10|-30|  5 |-50|-40|-20| 20| 30| 30| 30| 30|
+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+
+  4 | 30| 40| 40| 40| 20|-20|-40|-50|  4 |-30|-10| 40| 40| 40| 40|-10|-30|  4 |-50|-40|-20| 20| 40| 40| 40| 30|
+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+
+  3 | 30| 40| 40| 40| 20|-20|-40|-50|  3 |-30|-10| 35| 35| 35| 35|-10|-30|  3 |-50|-40|-20| 20| 40| 40| 40| 30|
+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+
+  2 | 30| 30| 30| 30| 20|-20|-40|-50|  2 |-30|-10|-10|-10|-10|-10|-10|-30|  2 |-50|-40|-20| 20| 30| 30| 30| 30|
+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+
+  1 |-20|-20|-20|-20|-20|-20|-40|-50|  1 |-30|-30|-30|-30|-30|-30|-30|-30|  1 |-50|-40|-20|-20|-20|-20|-20|-20|
+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+    +---+---+---+---+---+---+---+---+
+      A   B   C   D   E   F   G   H        A   B   C   D   E   F   G   H        A   B   C   D   E   F   G   H
+
+    - Castling
+      Very important. If the king has castled, the pawns in front of the king should not really be moved.
+      If he hasn't castled, the pawns on the king side (usually) shouldn't be moved.
+      More on this in pawn scoring (defective pawns).
+
+    - Midgame
+      Basically, the king should just sit on his hands for most the game until the end.
+
+
+  2. Bishop
+    - Basic Scoring
+    +---+---+---+---+---+---+---+---+
+  8 |-10|-10| -8| -6| -6| -8|-10|-10|
+    +---+---+---+---+---+---+---+---+
+  7 | 0 | 8 | 6 | 8 | 8 | 6 | 8 | 0 |   Basically, these are the scores for every square that
+    +---+---+---+---+---+---+---+---+   a white bishop would want to be in. Bishops like long
+  6 | 2 | 6 | 12| 10| 10| 12| 6 | 2 |   diagonals (B2,G2), and they also really enjoy having
+    +---+---+---+---+---+---+---+---+   an output in the center of the board there.
+  5 | 2 | 8 | 10| 16| 16| 10| 8 | 2 |
+    +---+---+---+---+---+---+---+---+   Middle game or end game, the behaviour of the bishop is
+  4 | 2 | 8 | 10| 16| 16| 10| 8 | 2 |   basically the same.
+    +---+---+---+---+---+---+---+---+
+  3 | 2 | 6 | 12| 10| 10| 12| 6 | 2 |   This isn't all to bishop evaluation, obviously other pieces
+    +---+---+---+---+---+---+---+---+   will effect where the bishop will eventually end up, but
+  2 | 0 | 8 | 6 | 8 | 8 | 6 | 8 | 0 |   in general, this is a decent map in my opinion.
+    +---+---+---+---+---+---+---+---+
+  1 | 0 | 0 | 2 | 2 | 2 | 2 | 0 | 0 |   Note, that black should flip the board around, not simply
+    +---+---+---+---+---+---+---+---+   multiply by -1 (row 1<->8, 2<->7 etc).
+      A   B   C   D   E   F   G   H
+
+    - Outposts
+    +---+---+---+---+---+---+---+---+
+  8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |   Basic outpost values. An output is one where the piece
+    +---+---+---+---+---+---+---+---+   (bishop) is supported by a friendly pawn, and cannot be driven
+  7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |   by an enemy pawn in the near future.
+    +---+---+---+---+---+---+---+---+
+  6 | 0 | 1 | 2 | 2 | 2 | 2 | 1 | 0 |   "The near future" means either all pawns that could attack the
+    +---+---+---+---+---+---+---+---+   outpost piece are either passed the outpost, or blocked by other
+  5 | 0 | 3 | 5 | 5 | 5 | 5 | 3 | 0 |   pieces of any alignment.
+    +---+---+---+---+---+---+---+---+
+  4 | 0 | 1 | 3 | 3 | 3 | 3 | 1 | 0 |
+    +---+---+---+---+---+---+---+---+
+  3 | 0 | 0 | 1 | 1 | 1 | 1 | 0 | 0 |
+    +---+---+---+---+---+---+---+---+
+  2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    +---+---+---+---+---+---+---+---+
+  1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    +---+---+---+---+---+---+---+---+
+      A   B   C   D   E   F   G   H
+
+    - Mobility
+      Basically count the number of available moves to the bishop. Each square available to
+      the bishop would probably be weighed the positioning in basic scoring above.
+
+    - Other
+      - Traps
+        A bishop can lose a tempo if they are trapped. If the bishop ends up at A7 or H7 (say,
+        by capturing a pawn), they can become trapped by the simple move b6 or g6 respectively.
+        Trapped bishops are either useless (they only attack two squares), or they must lose a
+        tempo to get back into the game. They are also a weakness that black can hone in on,
+        eventually winning a piece for a pawn.
+        A trapped bishop should probably be worth 100, instead of the 325 assigned above.
+
+      - Pawns on the Wings
+        If there are pawns on both the A file and the H file, a bishop's value increases,
+        especially over a knight's. Bishop can jump back and forth, protecting and attacking
+        both sides of the board, while the knight is slow and painful.
+        This is more so an issue for the endgame, not so much the midgame.
+        Perhaps a new piece value of 350 instead of 325.
+
+
+  3. Knights
+    - Basic Scoring
+    +---+---+---+---+---+---+---+---+
+  8 |-30|-20|-20|-20|-20|-20|-20|-30|   Knights hate the side of the board. They have half the number
+    +---+---+---+---+---+---+---+---+   of possible moves there. A knight on the rim is dim.
+  7 |-10| 3 | 3 | 3 | 3 | 3 | 3 |-10|
+    +---+---+---+---+---+---+---+---+   Knights do enjoy the center, as all pieces do, but knights more so.
+  6 | 3 | 10| 15| 20| 20| 15| 10| 3 |   Knight outposts are very strong, and not easily dealt with.
+    +---+---+---+---+---+---+---+---+
+  5 | 3 | 10| 20| 20| 20| 20| 10| 3 |   The values in the 6th rank may be slightly high.
+    +---+---+---+---+---+---+---+---+
+  4 | 3 | 10| 20| 25| 25| 20| 10| 3 |
+    +---+---+---+---+---+---+---+---+
+  3 | 3 | 10| 19| 25| 25| 19| 10| 3 |   B3 and F3 are the natural development for the knight, so I
+    +---+---+---+---+---+---+---+---+   value them over D2 and E2 by a few points.
+  2 |-10| 10| 15| 17| 17| 15| 10|-10|
+    +---+---+---+---+---+---+---+---+
+  1 |-30|-20|-20|-10|-10|-20|-20|-30|
+    +---+---+---+---+---+---+---+---+
+      A   B   C   D   E   F   G   H
+
+    - Outposts
+    +---+---+---+---+---+---+---+---+
+  8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |   Same deal as the bishop outposts. If the knight can't be driven off
+    +---+---+---+---+---+---+---+---+   by an enemy pawn in the near future.
+  7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |   I'd like to add more to the knight though. If no minor piece can
+    +---+---+---+---+---+---+---+---+   take the knight, increase the bonus further.
+  6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    +---+---+---+---+---+---+---+---+
+  5 | 0 | 1 | 3 | 3 | 3 | 3 | 1 | 0 |
+    +---+---+---+---+---+---+---+---+
+  4 | 0 | 2 | 5 | 7 | 7 | 5 | 2 | 0 |
+    +---+---+---+---+---+---+---+---+
+  3 | 0 | 1 | 3 | 3 | 3 | 3 | 1 | 0 |
+    +---+---+---+---+---+---+---+---+
+  2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    +---+---+---+---+---+---+---+---+
+  1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    +---+---+---+---+---+---+---+---+
+      A   B   C   D   E   F   G   H
+
+    - Mobility
+      Basically count the number of available moves to the knight. Each square available to
+      the knight would probably be weighed the positioning in basic scoring above, especially
+      since the move set for a knight is so small to begin with.
+
+
+  4. Queens
+    - Basic Scoring
+    +---+---+---+---+---+---+---+---+
+  8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |   The Queen. Strange one, this one. The queen loves to be
+    +---+---+---+---+---+---+---+---+   a developed piece, but no one likes developing her.
+  7 | 0 | 0 | 3 | 3 | 3 | 3 | 0 | 0 |
+    +---+---+---+---+---+---+---+---+   She shouldn't really ever be touched until most other
+  6 | 0 | 3 | 3 | 6 | 6 | 3 | 3 | 0 |   pieces have been developed. That being said, when the
+    +---+---+---+---+---+---+---+---+   opponent develops the queen early, you always get a small
+  5 | 0 | 3 | 6 | 10| 10| 6 | 3 | 0 |   feeling of fear. Scary stuff.
+    +---+---+---+---+---+---+---+---+
+  4 | 0 | 3 | 6 | 10| 10| 6 | 3 | 0 |   The bonuses I'm giving might be a bit small. They seem about
+    +---+---+---+---+---+---+---+---+   right though. A queen at D5 is worth 1/10 of a pawn more. Yeah.
+  3 | 0 | 3 | 3 | 6 | 6 | 3 | 3 | 0 |   I'll go with that.
+    +---+---+---+---+---+---+---+---+
+  2 | 0 | 0 | 3 | 3 | 3 | 3 | 0 | 0 |   The queen can't really be on an outpost, since it is worth so
+    +---+---+---+---+---+---+---+---+   much, the opponent will do anything to get rid of it. I think
+  1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |   these centralized bonuses will be enough to take care of outposts.
+    +---+---+---+---+---+---+---+---+
+      A   B   C   D   E   F   G   H
+
+
+  5. Rooks
+    - Basic Scoring
+      Hmm. Rooks don't really care about being in the center of the board. Rooks care about open
+      files, or half open files.
+      An open file is one where there are no pawns in it at all. The rook can attack the entire column.
+      A half open file is one where our pawn has moved out the file somehow, and the rook can apply
+      pressure to an enemy pawn or outpost directly.
+        Open File Bonus - 25
+        Half Open File  - 10
+
+    - Mobility
+      A count of the number of squares available to the rook. What else is there?
+
+    - Other
+      - Trapped Rook
+        It can be that the rook is trapped by it's own king in the corner of the board.
+        If that is the case, A large penalty should be applied to try to fix the rook (50?).
+
+      - Pig
+        A rook on the 7th rank is called a pig. It likes to gobble pawns. It also tends to
+        prevent the enemy king from activating. A bonus should be given to pigs (30?).
+
+
+Pawn Scoring
+  - Advancing
+    +---+---+---+---+---+---+---+---+
+  8 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |   Pawns are encouraged to advance and be promoted.
+    +---+---+---+---+---+---+---+---+   Pawns in the center are easy to defend while advancing,
+  7 | 0 | 0 | 0 | -5| -5| 0 | 0 | 0 |   so they are scored higher than the useless wing pawns.
+    +---+---+---+---+---+---+---+---+
+  6 | 0 | 0 | 0 | 5 | 5 | 0 | 0 | 0 |   Side note: wing pawns often lead to draws.
+    +---+---+---+---+---+---+---+---+
+  5 | 3 | 3 | 3 | 10| 10| 3 | 3 | 3 |   This board seems backward, but it's not. Pawns of the
+    +---+---+---+---+---+---+---+---+   opposing colour are very strong as they go toward to the
+  4 | 5 | 5 | 5 | 15| 15| 5 | 5 | 5 |   back rank. They become a strong thread, and must be worth
+    +---+---+---+---+---+---+---+---+   very much. So when black pawns come toward us, they are
+  3 | 10| 10| 10| 30| 30| 10| 10| 10|   a threat, and should be valued higher.
+    +---+---+---+---+---+---+---+---+
+  2 | 50| 50| 50| 50| 50| 50| 50| 50|
+    +---+---+---+---+---+---+---+---+
+  1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+    +---+---+---+---+---+---+---+---+
+      A   B   C   D   E   F   G   H
+
+  - Toward the Center
+    Rule of thumb: always capture toward the center. So capture with the piece that will
+    become more centralized after the capture. With pieces, this should be covered just by using
+    the positional scoring, but with pawns it is not. Just something to keep in mind.
+
+  - File Weights
+    Files (A,C,F,H) are generally crappy files to have pawns on. They lead to drawn games in the
+    endgame. If possible, we should encourage capturing away from these files.
+
+  - Doubled Pawns
+    When two pawns of the same colour are in one file, they tend to get in the way and become a
+    weakness that the enemy can hone in on. Doubled pawns should be penalized, say 10 points. Each?
+
+  - Isolated Pawns
+    When one pawn is all alone, ie there are no pawns to in the file in either direction directly
+    next to the pawn, it becomes very vulnerable. No pawns are available to defend the loner, so
+    it becomes very hard to defend. Yet another weakness that can be honed in on. Isolated pawns
+    should be penalized as well, say 20 points. Same as the doubled pawn duo (maybe?). They are just that bad.
+    Isolated pawns on the wings (a,h) aren't as bad, but tend to still be weak. Maybe 10 points for them.
+
+  - Defective Pawns
+    Pawns in front of the king after he has castled are important defencively, so they shouldn't really
+    be moved. Fianchetto bishop - fine, but generally the strongest pawn structure in front of the king
+    is just the three unmoved pawns. In the mid-game, penalize pawns for moving in front of the king.
+    In the endgame however, pawns generally should be moving forward, so remove this penalty.
+    This indirectly calculates the king safety, so it's one thing we can safely ignore.
+
+  - Passed Pawns
+    Pawns which cannot be attacked by enemy pawns (ever) are super threaty.
+    - Add a bonus if it is a protected passed pawn, another pawn protects it.
+
+    - Passed pawns on the wings tend to be better since they are far away from the action, and far
+    from any kings or other pieces interfering with their advancing. However, if this is the last
+    pawn we have, it's a crappy pawn to have. Leads to drawn games.
+
+    - Remove passed pawn bonus if it is blocked by an enemy piece. If it is block by a friendly
+    piece, penalize both the pawn and the piece in order to encourage the blocking piece to get
+    out of the way and push the pawn.
+
+    - Factor in king distances. If our king is very close, bonus. If the enemy king is close, penalty.
+
+    - Hmm. I guess the more advanced the pawn is, the better it is. This is factored in by the pawn
+    advancing scoring, but maybe not strongly enough. Will have to test that.
+
+    - Rooks! Rooks love to protect passed pawns. But try not to protect it from the front, preferably
+    from our back rank. Protecting from the front - the rook just blocks the pawn from promoting.
+
+  - Hash
+    Since pawns don't always move, we can possibly hash positions, saving their score.
+    This would save on time. Actually, a lot of time. Otherwise, every ply will evalulate pawns.
+    And as we look ahead, we will hash any positions that were not previously calculated.
+
+
+
+
+
+
+
+
+
+
+
+What It Is Using
+  Material Score - Of course this is there. If you have a queen to his pawn,
+    you are obviously winning.
+
+  Positional Score - Pieces tend to enjoy being in the center, except rooks.
+    That being said, they don't like being too close to opposing pieces.
+    Central positions are given a few extra points because of how versitile
+    any piece becomes. These bonus points become fewer and fewer and you go
+    closer to opposing pawns, or to the edge of the board.
+
+  Mobility Score - The more moves there are available to a piece, likely the
+    more useful it is. A bonus is given to each minor piece equal to the
+    total numbers of possible moves it has, be they safe or not.
+
+  Outposts - A central piece that is protected by a pawn are always threats.
+    They are normally very strong, and tend to become a bone in your opponent's
+    throat. Bishops and Knights on an outpost are given a small bonus. Knights
+    are given a larger bonus. They just like to be on outposts more.
+
+  Rook Scoring - Rooks are slightly different from other pieces, in that they
+    tend to like being on the offensive. Rooks tend to hang back and either
+    protect pawns, or be the defencive end of a battery. Due to their nature,
+    they don't like being in the center of the board. They just like open files.
+    They cover the most ground, defend the most squares, and have the some of
+    the largest threats in the game - when they are on open files. So, in
+    addition to their mobility score, rooks are given a moderate bonus if they
+    are in an open file, or a small bonus if they are in a half open file.
+    Another thing about rooks. Bruce Pandolfini calls a rook on the seventh
+    rank a "pig." As in, it likes to eat up all the pawns. In order to
+    encourage this behaviour, a rook on the seventh rank is given a small bonus.
+
+  Pawn Scoring - Pawns...
+    Right. Pawns are odd. Since we are only going a few ply, the program will
+    not ever notice the actual value of a pawn until late game - until the
+    pawn is nearly promoted anyways. To help out, a bonus is given to any pawn
+    who advances. Central pawns are given a larger bonus in the hopes that the
+    moves e4 or d4 will eventually be played, taking the center. Wing pawns and
+    bishop pawns and given less of a bonus since they tend to lead to draws.
+    Pawns have other scores associated with them. If a player has two pawns
+    in one file, they are called doubled pawns. Doubled pawns tend to be weaker
+    because the pawns no longer support one another. To try to prevent the AI
+    from doubling pawns up when it has other options, a penalty is attached
+    to doubled pawns.
+    Similar to doubled pawns, there is what's known as an isolated pawn. An
+    isolated pawn has no friendly pawns in either of the files neighbouring it.
+    So, the isolated pawn can never be defended by a friendly pawn. Isolated pawns
+    tend to become key defencive points, and also a large weakness that the
+    opponent can hone in on. In order to help the AI prevent isolating it's
+    pawns, a penalty is attached to any isolated pawn.
+
+  King Scoring - The king should really just castle away and do nothing until
+    the endgame. To encourage castling, a large penalty is given to the king
+    depending on what file he's in. If he's castled, he gets a bonus.
+    In the endgame however, king activity is key to success. Depending on
+    where the pawns are, the king is given a very large positional score
+    in order to get him activated.
+
+
+
+
+Results
+
+  Opponent          Ply      Fluffy Colour      Time Controls   Outcome     Comments
+
+  Chess Titans       4          black             Infinite        win
+    Level 5
+
+  Chess Titans       4          white             Infinte         loss
+    Level 5
+
+  Chess Titans      4-8          white             Infinte        win     increased ply as game went on
+    Level 5
+
+  Chessmaster        4          white            10min/game       loss
+    ELO 1284
+
+  Chessmaster        4          white            10min/game       3fold   we were winning
+    ELO 1200
+
+  Chessmaster        4          white            10min/game       loss
+    ELO 1200
+
+  Chessmaster        4          black            10min/game       3fold   we were winning
+    ELO 1200
+
+  Chessmaster        4          white             5min/game       win
+    ELO 1203
+
+  Chessmaster        4          white            10min/game       3fold   we were winning
+    ELO 1250
+
+  Chessmaster        4          white             5min/game       loss    close game
+    ELO 1361
+
+  Chessmaster        4          white             5min/game       3fold   we were winning
+    ELO 1196
+
+  Chessmaster        4          white            10min/game       win     owned
+    ELO 1233
+
+  Chessmaster        4          white            10min/game       loss
+    ELO 1208
+
+  Chessmaster        4          white            10min/game       loss
+    ELO 1314
+
+  Chessmaster        6          white            Infinite         loss
+    ELO 1533
+
+  Chessmaster        4          white            Infinite         win     crushed
+    ELO 973
+
+
+
+
+
+
+
